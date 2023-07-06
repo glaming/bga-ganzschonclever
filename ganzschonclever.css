@@ -67,6 +67,92 @@
     }
 */
 
+#player-sheet {
+    width: 526px;
+    height: 750px;
+    margin-left: auto;
+    margin-right: auto;
+    background-image: url('img/player-sheet-modified-shrunk.jpg');
+ }
 
+ #dice-selection-container {
+    display: flex;
+    padding-left: 10px;
+    padding-right: 10px;
+ }
 
+.dice-selection-half {
+   flex: 1;
+}
 
+.dice-selection-half:first-child {
+    margin-right: 10px;
+ }
+
+ #silver-platter {
+    width: 100%;
+    height: 290px;
+    background-image: url('img/plate-modified.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+ }
+
+.die-placeholder-container {
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+
+    width: 283px;
+}
+
+#silver-platter .die-placeholder-container {
+    padding-top: 73px;
+    height: 143px;
+}
+
+#dice-rolling-area {
+    height: 180px;
+}
+#dice-rolling-area .die-placeholder-container {
+    padding-top: 10px;
+    height: 143px;
+}
+
+#active-plater-selection {
+    height: 100px;
+}
+#active-plater-selection .die-placeholder-container {
+    padding-top: 10px;
+}
+
+.die-placeholder {
+    width: 64px;
+    height: 64px;
+    margin-right: 10px;
+}
+
+.die {
+    width: 64px;
+    height: 64px;
+    position: absolute;
+    background-image: url('img/dice.png');
+}
+
+.die-color-white {}
+.die-color-red { background-position-y: -64px; }
+.die-color-orange { background-position-y: -128px; }
+.die-color-yellow { background-position-y: -192px; }
+.die-color-green { background-position-y: -256px; }
+.die-color-blue { background-position-y: -320px; }
+.die-color-purple { background-position-y: -384px; }
+
+.die-face-1 {}
+.die-face-2 { background-position-x: -64px;}
+.die-face-3 { background-position-x: -128px;}
+.die-face-4 { background-position-x: -192px;}
+.die-face-5 { background-position-x: -256px;}
+.die-face-6 { background-position-x: -320px;}

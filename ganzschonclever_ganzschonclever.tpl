@@ -25,8 +25,50 @@
     Please REMOVE this comment before publishing your game on BGA
 -->
 
+<div id="dice-selection-container">
+    <div class="dice-selection-half whiteblock">
+        Silver Platter
+        <div id="silver-platter">
+            <div class="die-placeholder-container">
+                <div id="die-placeholder-platter-white" class="die-placeholder"></div>
+                <div id="die-placeholder-platter-yellow" class="die-placeholder"></div>
+                <div id="die-placeholder-platter-blue" class="die-placeholder"></div>
+                <div id="die-placeholder-platter-green" class="die-placeholder"></div>
+                <div id="die-placeholder-platter-orange" class="die-placeholder"></div>
+                <div id="die-placeholder-platter-purple" class="die-placeholder"></div>
+            </div>
+        </div>
+    </div>
 
-This is your game interface. You can edit this HTML in your ".tpl" file.
+    <div class="dice-selection-half">
+        <div id="dice-rolling-area" class="whiteblock">
+            Rolled Dice
+            <div class="die-placeholder-container">
+                <div id="die-placeholder-rolled-white" class="die-placeholder"></div>
+                <div id="die-placeholder-rolled-yellow" class="die-placeholder"></div>
+                <div id="die-placeholder-rolled-blue" class="die-placeholder"></div>
+                <div id="die-placeholder-rolled-green" class="die-placeholder"></div>
+                <div id="die-placeholder-rolled-orange" class="die-placeholder"></div>
+                <div id="die-placeholder-rolled-purple" class="die-placeholder"></div>
+            </div>
+        </div>
+        <div id="active-plater-selection" class="whiteblock">
+            Active Player Chosen
+            <div class="die-placeholder-container">
+                <div id="die-placeholder-active-1" class="die-placeholder"></div>
+                <div id="die-placeholder-active-2" class="die-placeholder"></div>
+                <div id="die-placeholder-active-3" class="die-placeholder"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="die-container">
+    </div>
+</div>
+
+
+<div id="player-sheet">
+</div>
 
 
 <script type="text/javascript">
@@ -38,6 +80,8 @@ This is your game interface. You can edit this HTML in your ".tpl" file.
 var jstpl_some_game_item='<div class="my_game_item" id="my_game_item_${MY_ITEM_ID}"></div>';
 
 */
+
+var jstpl_die='<div id="die-color-${color}" class="die die-color-${color} die-face-${pips}"></div>';
 
 </script>  
 

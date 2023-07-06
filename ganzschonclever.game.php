@@ -88,7 +88,7 @@ class GanzSchonClever extends Table
         //self::initStat( 'player', 'player_teststat1', 0 );  // Init a player statistics (for all players)
 
         // TODO: setup the initial game situation here
-       
+        self::createDice();
 
         // Activate first player (which is in general a good idea :) )
         $this->activeNextPlayer();
@@ -117,7 +117,8 @@ class GanzSchonClever extends Table
         $result['players'] = self::getCollectionFromDb( $sql );
   
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
-  
+        $result['dice'] = self::getDiceState();
+
         return $result;
     }
 
@@ -147,6 +148,46 @@ class GanzSchonClever extends Table
         In this space, you can put any utility methods useful for your game logic
     */
 
+    function getDiceColors()
+    {
+        return array('white', 'yellow', 'blue', 'green', 'orange', 'purple');
+    }
+
+    function getNewRolledDiceValues( $n )
+    {
+        $values = array();
+
+        for($i=0; $i<$n; $i++)
+        {
+            $values[] = bga_rand(1, 6);
+        }
+
+        return $values;
+    }
+
+    function createDice()
+    {
+        $sql = "INSERT INTO dice (color, placement, value) VALUES ";
+        $sql_values = array();
+
+        $colors = self::getDiceColors();
+        $values = self::getNewRolledDiceValues(count($colors));
+
+        foreach( $colors as $i => $c )
+        {
+            $dice_value = $values[$i];
+            $sql_values[] = "('$c', 'rolled', $dice_value)";
+        }
+
+        $sql .= implode(',', $sql_values);
+        self::DbQuery($sql);
+    }
+
+    function getDiceState()
+    {
+        $sql = "SELECT color, placement, value, chosen_order FROM dice";
+        return self::getObjectListFromDB($sql);
+    }
 
 
 //////////////////////////////////////////////////////////////////////////////

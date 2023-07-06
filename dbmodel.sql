@@ -33,3 +33,10 @@
 -- Example 2: add a custom field to the standard "player" table
 -- ALTER TABLE `player` ADD `player_my_custom_field` INT UNSIGNED NOT NULL DEFAULT '0';
 
+CREATE TABLE IF NOT EXISTS `dice` (
+  `color` varchar(10) NOT NULL,
+  `placement` varchar(10) NOT NULL,
+  `value` smallint(5) unsigned DEFAULT 1,
+  `chosen_order` smallint(5) unsigned DEFAULT NULL,
+  PRIMARY KEY (`color`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -57,7 +57,12 @@ function (dojo, declare) {
             }
             
             // TODO: Set up your game interface here, according to "gamedatas"
-            
+
+            for( var i in gamedatas.dice )
+            {
+                var die = gamedatas.dice[i];
+                this.createDie(die.color, die.placement, die.value, die.chosen_order);
+            }
  
             // Setup game notifications to handle (see "setupNotifications" method below)
             this.setupNotifications();
@@ -158,6 +163,25 @@ function (dojo, declare) {
         
         */
 
+        getDieColours: function() {
+            return ['white', 'yellow', 'blue', 'green', 'orange', 'purple'];
+        },
+
+        createDie: function( color, placement, value, chosen_order )
+        {
+            dojo.place( this.format_block( 'jstpl_die', {
+                color: color,
+                pips: value,
+            } ) , 'die-container' );
+
+            var target = 'die-placeholder-'+placement+'-'+color;
+            if( placement === 'active')
+            {
+                target = 'die-placeholder-active-'+chosen_order;
+            }
+
+            this.placeOnObject( 'die-color-'+color, target );
+        },
 
         ///////////////////////////////////////////////////
         //// Player's action
