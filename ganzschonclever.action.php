@@ -25,21 +25,21 @@
   class action_ganzschonclever extends APP_GameAction
   {
     // Constructor: please do not modify
-   	public function __default()
-  	{
-  	    if( self::isArg( 'notifwindow') )
-  	    {
+    public function __default()
+    {
+        if( self::isArg( 'notifwindow') )
+        {
             $this->view = "common_notifwindow";
-  	        $this->viewArgs['table'] = self::getArg( "table", AT_posint, true );
-  	    }
-  	    else
-  	    {
+            $this->viewArgs['table'] = self::getArg( "table", AT_posint, true );
+        }
+        else
+        {
             $this->view = "ganzschonclever_ganzschonclever";
             self::trace( "Complete reinitialization of board game" );
       }
-  	}
+    }
 
-  	// TODO: defines your action entry points there
+    // TODO: defines your action entry points there
 
 
     /*

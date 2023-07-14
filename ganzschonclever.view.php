@@ -34,9 +34,9 @@ class view_ganzschonclever_ganzschonclever extends game_view
         return "ganzschonclever";
     }
 
-  	function build_page( $viewArgs )
-  	{
-  	    // Get players & players number
+    function build_page( $viewArgs )
+    {
+        // Get players & players number
         $players = $this->game->loadPlayersBasicInfos();
         $players_nbr = count( $players );
 
@@ -82,5 +82,5 @@ class view_ganzschonclever_ganzschonclever extends game_view
 
 
         /*********** Do not change anything below this line  ************/
-  	}
+    }
 }
