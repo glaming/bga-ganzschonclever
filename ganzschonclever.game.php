@@ -238,12 +238,13 @@ class GanzSchonClever extends Table
         // Check that the die is available to be chosen & count how many dice are already chosen
         $dice = self::getDiceState();
         $selectedCount = 1;
-        for ($i=0; $i<count($dice); $i++)
+        $selectedDieValue = 0;
+        foreach ($dice as $die)
         {
-            $die = $dice[$i];
-
             if ($die['color'] == $dieColour)
             {
+                $selectedDieValue = $die['value'];
+
                 if ($die['placement'] != 'rolled')
                 {
                     throw new BgaUserException( self::_("This die isn't available to be chosen") );
@@ -265,6 +266,27 @@ class GanzSchonClever extends Table
             'color' => $dieColour,
             'chosen_order' => $selectedCount
         ));
+
+        // Move all dice not selected that have a value less than the chosen dice to the silver platter
+        $diceToMoveToPlatter = array();
+        foreach ($dice as $die)
+        {
+            if ($die['placement'] == 'rolled' && $die['color'] != $dieColour && $die['value'] < $selectedDieValue)
+            {
+                $diceToMoveToPlatter[] = $die['color'];
+            }
+        }
+
+        if (count($diceToMoveToPlatter) > 0) {
+            $sql = "UPDATE dice SET placement = 'platter' WHERE color IN ('" . implode("','", $diceToMoveToPlatter) . "')";
+            self::DbQuery($sql);
+
+            // Notify all players about the dice moved to the silver platter
+            self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( '${colors_uc} dice moved to the silver platter' ), array(
+                'colors_uc' => implode(", ", array_map('ucwords', $diceToMoveToPlatter)),
+                'dice' => $diceToMoveToPlatter
+            ));
+        }
 
         $this->gamestate->nextState( 'chosenDie' );
     }

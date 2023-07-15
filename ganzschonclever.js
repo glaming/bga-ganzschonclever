@@ -311,8 +311,10 @@ function (dojo, declare) {
 
             dojo.subscribe( 'activePlayerChoseDie', this, "notif_activePlayerChoseDie" );
             this.notifqueue.setSynchronous( 'activePlayerChoseDie', 1500 );
+            dojo.subscribe( 'diceMovedToPlatter', this, "notif_diceMovedToPlatter" );
+            this.notifqueue.setSynchronous( 'diceMovedToPlatter', 2500 );
             dojo.subscribe( 'diceRolled', this, "notif_diceRolled" );
-            this.notifqueue.setSynchronous( 'diceRolled', 2500 );
+            this.notifqueue.setSynchronous( 'diceRolled', 3500 );
         },
 
         // TODO: from this point and below, you can write your game notifications handling methods
@@ -374,6 +376,19 @@ function (dojo, declare) {
                     anim.play();
                 })(color);
             }
+        },
+
+        notif_diceMovedToPlatter: function( notif )
+        {
+            console.log( 'notif_diceMovedToPlatter' );
+
+            for (var i in notif.args.dice)
+            {
+                var color = notif.args.dice[i];
+
+                var die = dojo.query( '.die-color-'+color )[0];
+                this.slideToObject( die, 'die-placeholder-platter-'+color ).play();
+            };
         }
    });
 });
