@@ -370,18 +370,25 @@ class GanzSchonClever extends Table
         }
 
         // Check if the player has chosen all 3 dice
+        // If they have, move all remaining dice to the silver platter and notify players
         if ($selectedCount == 3)
         {
-            // TODO: implement next phase
-            $this->gamestate->nextState( 'XXXXX' );
+            $sql = "UPDATE dice SET placement = 'platter' WHERE placement = 'rolled'";
+
+            // Notify all players about the dice moved to the silver platter
+            self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( 'Remaining ${colors_uc} dice moved to the silver platter' ), array(
+                'colors_uc' => implode(", ", array_map('ucwords', $diceToRoll)),
+                'dice' => $diceToRoll
+            ));
+
+            $this->gamestate->nextState( 'activePlayerDieChoosingComplete' );
             return;
         }
 
         // Check if there any dice left to choose
         if (count($diceToRoll) == 0)
         {
-            // TODO: implement next phase
-            $this->gamestate->nextState( 'XXXXX' );
+            $this->gamestate->nextState( 'activePlayerDieChoosingComplete' );
             return;
         }
 

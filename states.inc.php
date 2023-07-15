@@ -99,7 +99,24 @@ $machinestates = array(
         "type" => "game",
         "action" => "stActivePlayerDieChosen",
         "updateGameProgression" => false,
-        "transitions" => array( "activePlayerTurn" => 10 )
+        "transitions" => array( "activePlayerTurn" => 10, "activePlayerDieChoosingComplete" => 30 )
+    ),
+
+    30 => array(
+        "name" => "selectAndUseDice",
+        "description" => clienttranslate('Waiting for other players to complete their actions'),
+        "descriptionmyturn" => clienttranslate('${you} must take an action'),
+        "type" => "multipleactiveplayer",
+        "possibleactions" => array( "selectAndUseDice" ),
+        "transitions" => array( "nextRound" => 40 )
+    ),
+
+    40 => array(
+        "name" => "newRoundBegin",
+        "type" => "game",
+        "action" => "stActivePlayerDieChosen",
+        "updateGameProgression" => false,
+        "transitions" => array( "activePlayerTurn" => 10, "endGame" => 30 )
     ),
 
     // Final state.
