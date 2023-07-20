@@ -90,7 +90,7 @@ $machinestates = array(
         "descriptionmyturn" => clienttranslate('${you} must choose a rolled die to place in your chosen area'),
         "type" => "activeplayer",
         "args" => "argActivePlayerTurn",
-        "possibleactions" => array( "activePlayerChoosesDie" ),
+        "possibleactions" => array( "chooseDie" ),
         "transitions" => array( "chosenDie" => 20 )
     ),
 
@@ -103,18 +103,41 @@ $machinestates = array(
     ),
 
     30 => array(
-        "name" => "selectAndUseDice",
+        "name" => "simultaneousDiceSelectionAndSheetMarking",
         "description" => clienttranslate('Waiting for other players to complete their actions'),
         "descriptionmyturn" => clienttranslate('${you} must take an action'),
         "type" => "multipleactiveplayer",
-        "possibleactions" => array( "selectAndUseDice" ),
-        "transitions" => array( "nextRound" => 40 )
+        "initialprivate" => 31,
+        "action" => "stInitSimultaneousDiceSelectionAndSheetMarking",
+        // TODO: update nextRound to `40`... setting shortcut to test current logic
+        "transitions" => array( "nextRound" => 99 )
     ),
+
+    31 => array(
+        "name" => "chooseDieForScoreSheet",
+        "descriptionmyturn" => clienttranslate('${you} must choose an available die'),
+        "type" => "private",
+        "args" => "argAvailableDiceForScoreSheet",
+        "action" => "stChooseDieForScoreSheet",
+        "possibleactions" => array( "chooseDie" ),
+        // TODO: update markScoreSheet to `32`... setting shortcut to test current logic
+        "transitions" => array( "markScoreSheet" => 31, "allDiceChosen" => 30 )
+    ),
+
+    // Placeholder state - will implement later
+    // 32 => array(
+    //     "name" => "markScoreSheet",
+    //     "descriptionmyturn" => clienttranslate('${you} must mark your chosen die on your score sheet'),
+    //     "type" => "private",
+    //     "args" => "argAvailableSpacesOnScoreSheet",
+    //     "possibleactions" => array( "markScoreSheet" ),
+    //     "transitions" => array( "chooseNextDie" => 31 )
+    // ),
 
     40 => array(
         "name" => "newRoundBegin",
         "type" => "game",
-        "action" => "stActivePlayerDieChosen",
+        "action" => "stNewRoundBegin",
         "updateGameProgression" => false,
         "transitions" => array( "activePlayerTurn" => 10, "endGame" => 30 )
     ),

@@ -63,13 +63,13 @@
 
     */
 
-    public function activePlayerChoosesDie()
+    public function chooseDie()
     {
         self::setAjaxMode();
 
         $dieColor = self::getArg( "color", AT_alphanum, true );
 
-        $this->game->activePlayerChoosesDie( $dieColor );
+        $this->game->chooseDie( $dieColor );
 
         self::ajaxResponse( );
     }

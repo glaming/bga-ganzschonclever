@@ -114,6 +114,16 @@ function (dojo, declare) {
                 this.updateSelectableDice(selectableDice);
                 break;
 
+            case 'chooseDieForScoreSheet':
+                var selectableDice = [];
+                args.args.availableDice.forEach( function( die )
+                {
+                    selectableDice.push( die );
+                });
+
+                this.updateSelectableDice(selectableDice);
+                break;
+
             case 'dummmy':
                 break;
             }
@@ -211,7 +221,7 @@ function (dojo, declare) {
                 dojo.addClass( 'die-color-'+die.color, 'selectable' );
             });
 
-            this.addTooltipToClass( 'selectable', '', _('Select this rolled die') );
+            this.addTooltipToClass( 'selectable', '', _('Select this die') );
         },
 
         ///////////////////////////////////////////////////
@@ -273,8 +283,8 @@ function (dojo, declare) {
             var color = die.id.split('-')[2];
 
             // Check that this action is possible (see "possibleactions" in states.inc.php)
-            if( this.checkAction( 'activePlayerChoosesDie' ) ) {
-                this.ajaxcall( "/ganzschonclever/ganzschonclever/activePlayerChoosesDie.html", {
+            if( this.checkAction( 'chooseDie' ) ) {
+                this.ajaxcall( "/ganzschonclever/ganzschonclever/chooseDie.html", {
                     lock: true,
                     color: color,
                 }, this, function( result ) {}, function( is_error ) {} );

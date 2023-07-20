@@ -64,13 +64,14 @@ class GanzSchonClever extends Table
         $default_colors = $gameinfos['player_colors'];
 
         // Create players
-        // Note: if you added some extra field on "player" table in the database (dbmodel.sql), you can initialize it there.
-        $sql = "INSERT INTO player (player_id, player_color, player_canal, player_name, player_avatar) VALUES ";
+        // Additionally: set the first player as the "Active Player" (per game definition)
+
+        $sql = "INSERT INTO player (player_id, player_color, player_canal, player_name, player_avatar, is_active_player) VALUES ";
         $values = array();
         foreach( $players as $player_id => $player )
         {
             $color = array_shift( $default_colors );
-            $values[] = "('".$player_id."','$color','".$player['player_canal']."','".addslashes( $player['player_name'] )."','".addslashes( $player['player_avatar'] )."')";
+            $values[] = "('".$player_id."','$color','".$player['player_canal']."','".addslashes( $player['player_name'] )."','".addslashes( $player['player_avatar'] )."',".( $player_id == array_key_first($players) ? 1 : 0 ).")";
         }
         $sql .= implode( ',', $values );
         self::DbQuery( $sql );
@@ -189,6 +190,43 @@ class GanzSchonClever extends Table
         return self::getObjectListFromDB($sql);
     }
 
+    function getPlayerDiceSelectionState($player_id)
+    {
+        $sql = "SELECT color, player_id, how_selected FROM dice_selections WHERE player_id = $player_id";
+        return self::getObjectListFromDB($sql);
+    }
+
+    function getGameActivePlayerId()
+    {
+        $sql = "SELECT player_id FROM player WHERE is_active_player = 1";
+        return self::getUniqueValueFromDB($sql);
+    }
+
+    function getAvailableDiceSelectionsForPlayer($player_id)
+    {
+        $dice = self::getDiceState();
+
+        $availableDicePlacement = 'platter';
+        $previouslySelectedDiceColors = array();
+
+        // Active player is able to select die only from active pool, for dice not already chosen
+        if ($player_id == self::getGameActivePlayerId())
+        {
+            $availableDicePlacement = 'active';
+            $previouslySelectedDiceColors = array_column( self::getPlayerDiceSelectionState( $player_id ), 'color' );
+        }
+
+        $availableDice = array();
+        foreach ($dice as $die)
+        {
+            if ($die['placement'] == $availableDicePlacement && !in_array($die['color'], $previouslySelectedDiceColors))
+            {
+                $availableDice[] = $die;
+            }
+        }
+
+        return $availableDice;
+    }
 
 //////////////////////////////////////////////////////////////////////////////
 //////////// Player actions
@@ -225,16 +263,37 @@ class GanzSchonClever extends Table
 
     */
 
-    function activePlayerChoosesDie( $dieColour )
+    function chooseDie( $dieColor )
     {
-        self::checkAction( 'activePlayerChoosesDie' );
+        self::checkAction( 'chooseDie' );
 
         // Validate argument
-        if (!in_array($dieColour, self::getDiceColors()))
+        if (!in_array($dieColor, self::getDiceColors()))
         {
             throw new BgaUserException( self::_("Invalid die color") );
         }
 
+        // Based on game state, use action handler
+        $state = $this->gamestate->state();
+        $privateState = $this->gamestate->getPrivateState( self::getCurrentPlayerId() );
+        $stateName = $state['name'];
+        $privateStateName = $privateState['name'];
+
+        if( $stateName == 'activePlayerTurn' )
+        {
+            self::activePlayerChoosesDie( $dieColor );
+        }
+        else if( $stateName == 'simultaneousDiceSelectionAndSheetMarking' && $privateStateName == 'chooseDieForScoreSheet' )
+        {
+            self::chooseDieForScoreSheet( $dieColor );
+        }
+        else {
+            throw new BgaUserException( self::_("Invalid game state '{$stateName} and private game state {$privateStateName} for action chooseDie") );
+        }
+    }
+
+    function activePlayerChoosesDie( $dieColour )
+    {
         // Check that the die is available to be chosen & count how many dice are already chosen
         $dice = self::getDiceState();
         $selectedCount = 1;
@@ -291,6 +350,26 @@ class GanzSchonClever extends Table
         $this->gamestate->nextState( 'chosenDie' );
     }
 
+    function chooseDieForScoreSheet( $dieColor )
+    {
+        // Check that the die is available to be chosen
+        $availableDiceSelectionColors = array_column(self::getAvailableDiceSelectionsForPlayer( self::getCurrentPlayerId() ), 'color');
+        if (!in_array($dieColor, $availableDiceSelectionColors))
+        {
+            throw new BgaUserException( self::_("This die isn't available to be chosen") );
+        }
+
+        // Set die as chosen
+        // $sqlSelectionQuery - should likely happen post marking score sheet to allow for an "undo"
+        $sqlAddSelection = "INSERT INTO dice_selections (player_id, color, how_selected) VALUES (" . self::getCurrentPlayerId() . ", '$dieColor', 'standard')";
+        $sqlUpdatePlayer = "UPDATE player SET simultaneous_play_die_color_selected = '$dieColor' WHERE player_id = " . (self::getCurrentPlayerId());
+
+        self::DbQuery($sqlAddSelection);
+        self::DbQuery($sqlUpdatePlayer);
+
+        $this->gamestate->nextPrivateState(self::getCurrentPlayerId(), 'markScoreSheet');
+    }
+
 
 //////////////////////////////////////////////////////////////////////////////
 //////////// Game state arguments
@@ -323,6 +402,13 @@ class GanzSchonClever extends Table
     {
         return array(
             'dice' => self::getDiceState()
+        );
+    }
+
+    function argAvailableDiceForScoreSheet( $player_id )
+    {
+        return array(
+            'availableDice' => self::getAvailableDiceSelectionsForPlayer( $player_id )
         );
     }
 
@@ -414,6 +500,46 @@ class GanzSchonClever extends Table
         ));
 
         $this->gamestate->nextState( 'activePlayerTurn' );
+    }
+
+    function stInitSimultaneousDiceSelectionAndSheetMarking()
+    {
+        $this->gamestate->setAllPlayersMultiactive();
+        $this->gamestate->initializePrivateStateForAllActivePlayers();
+    }
+
+    function stChooseDieForScoreSheet( $player_id )
+    {
+        $isGameActivePlayer = $player_id == self::getGameActivePlayerId();
+
+        $diceSelections = self::getPlayerDiceSelectionState( $player_id );
+
+        // Passive players allowed 1 die selection, active players allowed 3
+        $diceSelectionsAllowed = 1;
+        if ($isGameActivePlayer)
+        {
+            $diceSelectionsAllowed = 3;
+        }
+
+        if (count($diceSelections) == $diceSelectionsAllowed)
+        {
+            $this->gamestate->setPlayerNonMultiactive( $player_id, 'nextRound' );
+            return;
+        }
+
+        // Check there are still die available to select for active player
+        if ($isGameActivePlayer && count(self::getAvailableDiceSelectionsForPlayer( $player_id )) == 0)
+        {
+            $this->gamestate->setPlayerNonMultiactive( $player_id, 'nextRound' );
+            return;
+        }
+
+        // Otherwise, do nothing - allow player to select another die
+    }
+
+    function stNewRoundBegin()
+    {
+
     }
 
 //////////////////////////////////////////////////////////////////////////////
