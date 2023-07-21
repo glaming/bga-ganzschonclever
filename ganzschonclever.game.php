@@ -89,7 +89,8 @@ class GanzSchonClever extends Table
         //self::initStat( 'player', 'player_teststat1', 0 );  // Init a player statistics (for all players)
 
         // TODO: setup the initial game situation here
-        self::createDice();
+        GSCDiceManager::setupNewGame();
+        GSCDiceSelectionManager::setupNewGame();
 
         // Activate first player (which is in general a good idea :) )
         $this->activeNextPlayer();
@@ -118,7 +119,7 @@ class GanzSchonClever extends Table
         $result['players'] = self::getCollectionFromDb( $sql );
 
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
-        $result['dice'] = self::getDiceState();
+        $result['dice'] = GSCDiceManager::getDiceState();
 
         return $result;
     }
@@ -149,83 +150,15 @@ class GanzSchonClever extends Table
         In this space, you can put any utility methods useful for your game logic
     */
 
-    function getDiceColors()
-    {
-        return array('white', 'yellow', 'blue', 'green', 'orange', 'purple');
-    }
-
-    function getNewRolledDiceValues( $n )
-    {
-        $values = array();
-
-        for($i=0; $i<$n; $i++)
-        {
-            $values[] = bga_rand(1, 6);
-        }
-
-        return $values;
-    }
-
-    function createDice()
-    {
-        $sql = "INSERT INTO dice (color, placement, value) VALUES ";
-        $sql_values = array();
-
-        $colors = self::getDiceColors();
-        $values = self::getNewRolledDiceValues(count($colors));
-
-        foreach( $colors as $i => $c )
-        {
-            $dice_value = $values[$i];
-            $sql_values[] = "('$c', 'rolled', $dice_value)";
-        }
-
-        $sql .= implode(',', $sql_values);
-        self::DbQuery($sql);
-    }
-
-    function getDiceState()
-    {
-        $sql = "SELECT color, placement, value, chosen_order FROM dice";
-        return self::getObjectListFromDB($sql);
-    }
-
-    function getPlayerDiceSelectionState($player_id)
-    {
-        $sql = "SELECT color, player_id, how_selected FROM dice_selections WHERE player_id = $player_id";
-        return self::getObjectListFromDB($sql);
-    }
-
     function getGameActivePlayerId()
     {
         $sql = "SELECT player_id FROM player WHERE is_active_player = 1";
         return self::getUniqueValueFromDB($sql);
     }
 
-    function getAvailableDiceSelectionsForPlayer($player_id)
+    function isCurrentPlayerGameActivePlayer()
     {
-        $dice = self::getDiceState();
-
-        $availableDicePlacement = 'platter';
-        $previouslySelectedDiceColors = array();
-
-        // Active player is able to select die only from active pool, for dice not already chosen
-        if ($player_id == self::getGameActivePlayerId())
-        {
-            $availableDicePlacement = 'active';
-            $previouslySelectedDiceColors = array_column( self::getPlayerDiceSelectionState( $player_id ), 'color' );
-        }
-
-        $availableDice = array();
-        foreach ($dice as $die)
-        {
-            if ($die['placement'] == $availableDicePlacement && !in_array($die['color'], $previouslySelectedDiceColors))
-            {
-                $availableDice[] = $die;
-            }
-        }
-
-        return $availableDice;
+        return self::getCurrentPlayerId() == self::getGameActivePlayerId();
     }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -268,16 +201,14 @@ class GanzSchonClever extends Table
         self::checkAction( 'chooseDie' );
 
         // Validate argument
-        if (!in_array($dieColor, self::getDiceColors()))
+        if (!in_array($dieColor, GSCDiceManager::getDiceColors()))
         {
             throw new BgaUserException( self::_("Invalid die color") );
         }
 
         // Based on game state, use action handler
         $state = $this->gamestate->state();
-        $privateState = $this->gamestate->getPrivateState( self::getCurrentPlayerId() );
         $stateName = $state['name'];
-        $privateStateName = $privateState['name'];
 
         if( $stateName == 'activePlayerTurn' )
         {
@@ -305,55 +236,26 @@ class GanzSchonClever extends Table
     function activePlayerChoosesDie( $dieColour )
     {
         // Check that the die is available to be chosen & count how many dice are already chosen
-        $dice = self::getDiceState();
-        $selectedCount = 1;
-        $selectedDieValue = 0;
-        foreach ($dice as $die)
+        if (!GSCDiceManager::isDieInRolledArea($dieColour))
         {
-            if ($die['color'] == $dieColour)
-            {
-                $selectedDieValue = $die['value'];
-
-                if ($die['placement'] != 'rolled')
-                {
-                    throw new BgaUserException( self::_("This die isn't available to be chosen") );
-                }
-            }
-
-            if ($die['placement'] == 'active')
-            {
-                $selectedCount++;
-            }
+            throw new BgaUserException( self::_("This die isn't available to be chosen") );
         }
 
-        $sql = "UPDATE dice SET placement = 'active', chosen_order = $selectedCount WHERE color = '$dieColour'";
-        self::DbQuery($sql);
+        $result = GSCDiceManager::activePlayerChoosesRolledDie($dieColour);
 
         // Notify all players about the die selected
         self::notifyAllPlayers( "activePlayerChoseDie", clienttranslate( '${player_name} chooses ${color}' ), array(
             'player_name' => self::getActivePlayerName(),
             'color' => $dieColour,
-            'chosen_order' => $selectedCount
+            'chosen_order' => $result['chosenOrder']
         ));
 
-        // Move all dice not selected that have a value less than the chosen dice to the silver platter
-        $diceToMoveToPlatter = array();
-        foreach ($dice as $die)
-        {
-            if ($die['placement'] == 'rolled' && $die['color'] != $dieColour && $die['value'] < $selectedDieValue)
-            {
-                $diceToMoveToPlatter[] = $die['color'];
-            }
-        }
-
-        if (count($diceToMoveToPlatter) > 0) {
-            $sql = "UPDATE dice SET placement = 'platter' WHERE color IN ('" . implode("','", $diceToMoveToPlatter) . "')";
-            self::DbQuery($sql);
-
-            // Notify all players about the dice moved to the silver platter
+        // Notify all players about any dice moved to the silver platter
+        $diceMovedToPlatter = $result['diceMovedToPlatter'];
+        if (count($diceMovedToPlatter) > 0) {
             self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( '${colors_uc} dice moved to the silver platter' ), array(
-                'colors_uc' => implode(", ", array_map('ucwords', $diceToMoveToPlatter)),
-                'dice' => $diceToMoveToPlatter
+                'colors_uc' => implode(", ", array_map('ucwords', $diceMovedToPlatter)),
+                'dice' => $diceMovedToPlatter
             ));
         }
 
@@ -363,18 +265,20 @@ class GanzSchonClever extends Table
     function chooseDieForScoreSheet( $dieColor )
     {
         // Check that the die is available to be chosen
-        $availableDiceSelectionColors = array_column(self::getAvailableDiceSelectionsForPlayer( self::getCurrentPlayerId() ), 'color');
+        $isActivePlayer = self::isCurrentPlayerGameActivePlayer();
+        $availableDiceSelection = GSCDiceSelectionManager::getAvailableSelectionsForPlayer( self::getCurrentPlayerId(), $isActivePlayer );
+
+        $availableDiceSelectionColors = array_column( $availableDiceSelection, 'color' );
         if (!in_array($dieColor, $availableDiceSelectionColors))
         {
             throw new BgaUserException( self::_("This die isn't available to be chosen") );
         }
 
         // Set die as chosen
-        // $sqlSelectionQuery - should likely happen post marking score sheet to allow for an "undo"
-        $sqlAddSelection = "INSERT INTO dice_selections (player_id, color, how_selected) VALUES (" . self::getCurrentPlayerId() . ", '$dieColor', 'standard')";
-        $sqlUpdatePlayer = "UPDATE player SET simultaneous_play_die_color_selected = '$dieColor' WHERE player_id = " . (self::getCurrentPlayerId());
+        // playerSelectsDie - should likely happen post marking score sheet to allow for an "undo"
+        GSCDiceSelectionManager::playerSelectsDie( self::getCurrentPlayerId(), $dieColor );
 
-        self::DbQuery($sqlAddSelection);
+        $sqlUpdatePlayer = "UPDATE player SET simultaneous_play_die_color_selected = '$dieColor' WHERE player_id = " . (self::getCurrentPlayerId());
         self::DbQuery($sqlUpdatePlayer);
 
         $this->gamestate->nextPrivateState(self::getCurrentPlayerId(), 'markScoreSheet');
@@ -411,14 +315,16 @@ class GanzSchonClever extends Table
     function argActivePlayerTurn()
     {
         return array(
-            'dice' => self::getDiceState()
+            'dice' => GSCDiceManager::getDiceState()
         );
     }
 
     function argAvailableDiceForScoreSheet( $player_id )
     {
+        $isActivePlayer = self::isCurrentPlayerGameActivePlayer();
+
         return array(
-            'availableDice' => self::getAvailableDiceSelectionsForPlayer( $player_id )
+            'availableDice' => GSCDiceSelectionManager::getAvailableSelectionsForPlayer( $player_id, $isActivePlayer )
         );
     }
 
@@ -447,61 +353,38 @@ class GanzSchonClever extends Table
     function stActivePlayerDieChosen()
     {
         // Check if the player has chosen all 3 dice
-        $dice = self::getDiceState();
-        $selectedCount = 0;
-        $diceToRoll = [];
-        for ($i=0; $i<count($dice); $i++)
-        {
-            $die = $dice[$i];
-
-            if ($die['placement'] == 'active')
-            {
-                $selectedCount++;
-            }
-
-            if ($die['placement'] == 'rolled')
-            {
-                $diceToRoll[] = $die['color'];
-            }
-        }
+        $diceState = GSCDiceManager::getDiceStateV2();
 
         // Check if the player has chosen all 3 dice
         // If they have, move all remaining dice to the silver platter and notify players
-        if ($selectedCount == 3)
+        if (count($diceState['active']) == 3)
         {
-            $sql = "UPDATE dice SET placement = 'platter' WHERE placement = 'rolled'";
 
-            // Notify all players about the dice moved to the silver platter
-            self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( 'Remaining ${colors_uc} dice moved to the silver platter' ), array(
-                'colors_uc' => implode(", ", array_map('ucwords', $diceToRoll)),
-                'dice' => $diceToRoll
-            ));
+            // Check if any remaining dice to move
+            if (count($diceState['rolled']) > 0)
+            {
+                GSCDiceManager::moveAllRolledDieToPlatter();
+
+                // Notify all players about the dice moved to the silver platter
+                self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( 'Remaining ${colors_uc} dice moved to the silver platter' ), array(
+                    'colors_uc' => implode(", ", array_map('ucwords', $diceState['rolled'])),
+                    'dice' => $diceState['rolled']
+                ));
+            }
 
             $this->gamestate->nextState( 'activePlayerDieChoosingComplete' );
             return;
         }
 
         // Check if there any dice left to choose
-        if (count($diceToRoll) == 0)
+        if (count($diceState['rolled']) == 0)
         {
             $this->gamestate->nextState( 'activePlayerDieChoosingComplete' );
             return;
         }
 
         // Roll the remaining dice left in rolled area
-        $rolledDiceUpdatedValues = array();
-        $newValues = self::getNewRolledDiceValues(count($diceToRoll));
-
-        $sql = "UPDATE dice SET placement = 'rolled', value = CASE color ";
-
-        for ($i=0; $i<count($diceToRoll); $i++)
-        {
-            $rolledDiceUpdatedValues[$diceToRoll[$i]] = $newValues[$i];
-            $sql .= "WHEN '$diceToRoll[$i]' THEN $newValues[$i] ";
-        }
-
-        $sql .= "END WHERE color IN ('" . implode("','", $diceToRoll) . "')";
-        self::DbQuery($sql);
+        $rolledDiceUpdatedValues = GSCDiceManager::rollRemaingDiceInRollArea();
 
         // Notify all players about the die selected
         self::notifyAllPlayers( "diceRolled", clienttranslate( '${player_name} re-rolls remaining dice' ), array(
@@ -520,9 +403,9 @@ class GanzSchonClever extends Table
 
     function stChooseDieForScoreSheet( $player_id )
     {
-        $isGameActivePlayer = $player_id == self::getGameActivePlayerId();
+        $isGameActivePlayer = self::isCurrentPlayerGameActivePlayer();
 
-        $diceSelections = self::getPlayerDiceSelectionState( $player_id );
+        $diceSelections = GSCDiceSelectionManager::getPlayerDiceSelectionState( $player_id );
 
         // Passive players allowed 1 die selection, active players allowed 3
         $diceSelectionsAllowed = 1;
@@ -538,7 +421,7 @@ class GanzSchonClever extends Table
         }
 
         // Check there are still die available to select for active player
-        if ($isGameActivePlayer && count(self::getAvailableDiceSelectionsForPlayer( $player_id )) == 0)
+        if ($isGameActivePlayer && count(GSCDiceSelectionManager::getAvailableSelectionsForPlayer( $player_id, $isGameActivePlayer )) == 0)
         {
             $this->gamestate->setPlayerNonMultiactive( $player_id, 'nextRound' );
             return;

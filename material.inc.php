@@ -32,6 +32,5 @@ $this->card_types = array(
 
 */
 
-
-
-
+require_once("modules/GSCDiceManager.php");
+require_once("modules/GSCDiceSelectionManager.php");
