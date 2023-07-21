@@ -8,30 +8,22 @@ class GSCDiceSelectionManager extends APP_GameClass
         // TODO: Implement
     }
 
-    public static function getAvailableSelectionsForPlayer($player_id, $is_active_player)
+    public static function getAvailableColorSelectionsForPlayer($player_id, $is_active_player)
     {
-        $dice = GSCDiceManager::getDiceState();
+        $ds = new GSCDiceState();
 
-        $availableDicePlacement = 'platter';
+        // Default values for the passive player
+        $availableDiceInPlacement = $ds->getPlatterColors();
         $previouslySelectedDiceColors = array();
 
         // Active player is able to select die only from active pool, for dice not already chosen
         if ($is_active_player)
         {
-            $availableDicePlacement = 'active';
+            $availableDiceInPlacement = $ds->getActiveColorsOrdered();
             $previouslySelectedDiceColors = array_column( self::getPlayerDiceSelectionState( $player_id ), 'color' );
         }
 
-        $availableDice = array();
-        foreach ($dice as $die)
-        {
-            if ($die['placement'] == $availableDicePlacement && !in_array($die['color'], $previouslySelectedDiceColors))
-            {
-                $availableDice[] = $die;
-            }
-        }
-
-        return $availableDice;
+        return array_values(array_diff($availableDiceInPlacement, $previouslySelectedDiceColors));
     }
 
     public static function getPlayerDiceSelectionState($player_id)

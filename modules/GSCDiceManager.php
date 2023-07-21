@@ -7,35 +7,26 @@ class GSCDiceManager extends APP_GameClass
         self::createDice();
     }
 
-    public static function activePlayerChoosesRolledDie($dieColor)
+    public static function activePlayerChoosesRolledDie($chosenDieColor)
     {
-        $dice = self::getDiceState();
+        $ds = new GSCDiceState();
 
-        $selectedCount = 1;
-        $selectedDieValue = 0;
-        foreach ($dice as $die)
-        {
-            if ($die['placement'] == 'active')
-            {
-                $selectedCount++;
-            }
-
-            if ($die['color'] == $dieColor)
-            {
-                $selectedDieValue = $die['value'];
-            }
-        }
-
-        $sql = "UPDATE dice SET placement = 'active', chosen_order = $selectedCount WHERE color = '$dieColor'";
+        // Move chosen die to active area to the next available position
+        $nextPositionValue = count($ds->getActiveColorsOrdered()) + 1;
+        $sql = "UPDATE dice SET placement = 'active', chosen_order = $nextPositionValue WHERE color = '$chosenDieColor'";
         self::DbQuery($sql);
 
         // Move all dice not selected that have a value less than the chosen dice to the silver platter
+        $chosenDieValue = $ds->getValue($chosenDieColor);
+        $rolledDice = $ds->getRolledColors();
+
         $diceToMoveToPlatter = array();
-        foreach ($dice as $die)
+        foreach ($rolledDice as $dieColor)
         {
-            if ($die['placement'] == 'rolled' && $die['color'] != $dieColor && $die['value'] < $selectedDieValue)
+            $dieValue = $ds->getValue($dieColor);
+            if ($chosenDieColor != $dieColor && $dieValue < $chosenDieValue)
             {
-                $diceToMoveToPlatter[] = $die['color'];
+                $diceToMoveToPlatter[] = $dieColor;
             }
         }
 
@@ -45,7 +36,7 @@ class GSCDiceManager extends APP_GameClass
         }
 
         return array(
-            'chosenOrder' => $selectedCount,
+            'chosenOrder' => $nextPositionValue,
             'diceMovedToPlatter' => $diceToMoveToPlatter
         );
     }
@@ -55,60 +46,16 @@ class GSCDiceManager extends APP_GameClass
         return array('white', 'yellow', 'blue', 'green', 'orange', 'purple');
     }
 
-    public static function getDiceState() {
+    public static function getDBState() {
         $sql = "SELECT color, placement, value, chosen_order FROM dice";
         return self::getObjectListFromDB($sql);
     }
 
-    public static function getDiceStateV2() {
-        $dice = self::getDiceState();
-
-        $rolledDice = array();
-        $activeDice = array();
-        $platterDice = array();
-        $values = array();
-
-        foreach ($dice as $die)
-        {
-            $values[$die['color']] = $die['value'];
-
-            if ($die['placement'] == 'rolled')
-            {
-                $rolledDice[] = $die['color'];
-            }
-            else if ($die['placement'] == 'active') {
-                $activeDice[] = $die['color'];
-            }
-            else if ($die['placement'] == 'platter') {
-                $platterDice[] = $die['color'];
-            }
-        }
-
-        return array(
-            'rolled' => $rolledDice,
-            'active' => $activeDice,
-            'platter' => $platterDice,
-            'values' => $values
-        );
-    }
-
     public static function isDieInRolledArea($dieColor)
     {
-        $dice = self::getDiceState();
-        foreach ($dice as $die)
-        {
-            if ($die['color'] == $dieColor)
-            {
-                if ($die['placement'] != 'rolled')
-                {
-                    return false;
-                } else {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        $ds = new GSCDiceState();
+        $rolledDice = $ds->getRolledColors();
+        return in_array($dieColor, $rolledDice);
     }
 
     public static function moveAllRolledDieToPlatter()
@@ -125,9 +72,9 @@ class GSCDiceManager extends APP_GameClass
 
     public static function rollRemaingDiceInRollArea()
     {
-        $diceState = self::getDiceStateV2();
-        $diceToRoll = $diceState['rolled'];
+        $ds = new GSCDiceState();
 
+        $diceToRoll = $ds->getRolledColors();
         $newValues = self::getNewRolledDiceValues(count($diceToRoll));
 
         $rolledDiceUpdatedValues = array();

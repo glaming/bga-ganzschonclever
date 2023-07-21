@@ -58,11 +58,23 @@ function (dojo, declare) {
 
             // TODO: Set up your game interface here, according to "gamedatas"
 
-            for( var i in gamedatas.dice )
+            var $this = this;
+            gamedatas.dice.placements.rolled.forEach(function(dieColor)
             {
-                var die = gamedatas.dice[i];
-                this.createDie(die.color, die.placement, die.value, die.chosen_order);
-            }
+                $this.createDie(dieColor, 'rolled', gamedatas.dice.values[dieColor]);
+            });
+
+            gamedatas.dice.placements.platter.forEach(function(dieColor)
+            {
+                $this.createDie(dieColor, 'platter', gamedatas.dice.values[dieColor]);
+            });
+
+            var chosenOrder = 1;
+            gamedatas.dice.placements.active.forEach(function(dieColor)
+            {
+                $this.createDie(dieColor, 'active', gamedatas.dice.values[dieColor], chosenOrder);
+                chosenOrder++;
+            });
 
             dojo.query( '.die' ).connect( 'onclick', this, 'onDieSelected' );
 
@@ -101,27 +113,13 @@ function (dojo, declare) {
                     break;
                 }
 
-                var selectableDice = [];
+                // Set the rolled dice to be selectable
+                this.updateSelectableDice(args.args.dice.placements.rolled);
 
-                args.args.dice.forEach( function( die )
-                {
-                    if( die.placement === 'rolled' )
-                    {
-                        selectableDice.push( die );
-                    }
-                });
-
-                this.updateSelectableDice(selectableDice);
                 break;
 
             case 'chooseDieForScoreSheet':
-                var selectableDice = [];
-                args.args.availableDice.forEach( function( die )
-                {
-                    selectableDice.push( die );
-                });
-
-                this.updateSelectableDice(selectableDice);
+                this.updateSelectableDice(args.args.availableDice);
                 break;
 
             case 'dummmy':
@@ -212,13 +210,13 @@ function (dojo, declare) {
             this.placeOnObject( 'die-color-'+color, target );
         },
 
-        updateSelectableDice: function( dice )
+        updateSelectableDice: function( diceColors )
         {
             dojo.query( '.die.selectable' ).removeClass( 'selectable' );
 
-            dice.forEach( function( die )
+            diceColors.forEach( function( color )
             {
-                dojo.addClass( 'die-color-'+die.color, 'selectable' );
+                dojo.addClass( 'die-color-'+color, 'selectable' );
             });
 
             this.addTooltipToClass( 'selectable', '', _('Select this die') );

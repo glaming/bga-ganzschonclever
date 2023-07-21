@@ -119,7 +119,8 @@ class GanzSchonClever extends Table
         $result['players'] = self::getCollectionFromDb( $sql );
 
         // TODO: Gather all information about current game situation (visible by player $current_player_id).
-        $result['dice'] = GSCDiceManager::getDiceState();
+        $diceState = new GSCDiceState();
+        $result['dice'] = $diceState->getState();
 
         return $result;
     }
@@ -266,9 +267,8 @@ class GanzSchonClever extends Table
     {
         // Check that the die is available to be chosen
         $isActivePlayer = self::isCurrentPlayerGameActivePlayer();
-        $availableDiceSelection = GSCDiceSelectionManager::getAvailableSelectionsForPlayer( self::getCurrentPlayerId(), $isActivePlayer );
+        $availableDiceSelectionColors = GSCDiceSelectionManager::getAvailableColorSelectionsForPlayer( self::getCurrentPlayerId(), $isActivePlayer );
 
-        $availableDiceSelectionColors = array_column( $availableDiceSelection, 'color' );
         if (!in_array($dieColor, $availableDiceSelectionColors))
         {
             throw new BgaUserException( self::_("This die isn't available to be chosen") );
@@ -314,8 +314,9 @@ class GanzSchonClever extends Table
 
     function argActivePlayerTurn()
     {
+        $diceState = new GSCDiceState();
         return array(
-            'dice' => GSCDiceManager::getDiceState()
+            'dice' => $diceState->getState()
         );
     }
 
@@ -324,7 +325,7 @@ class GanzSchonClever extends Table
         $isActivePlayer = self::isCurrentPlayerGameActivePlayer();
 
         return array(
-            'availableDice' => GSCDiceSelectionManager::getAvailableSelectionsForPlayer( $player_id, $isActivePlayer )
+            'availableDice' => GSCDiceSelectionManager::getAvailableColorSelectionsForPlayer( $player_id, $isActivePlayer )
         );
     }
 
@@ -352,23 +353,23 @@ class GanzSchonClever extends Table
 
     function stActivePlayerDieChosen()
     {
-        // Check if the player has chosen all 3 dice
-        $diceState = GSCDiceManager::getDiceStateV2();
+        $ds = new GSCDiceState();
 
         // Check if the player has chosen all 3 dice
         // If they have, move all remaining dice to the silver platter and notify players
-        if (count($diceState['active']) == 3)
+        if (count($ds->getActiveColorsOrdered()) == 3)
         {
 
             // Check if any remaining dice to move
-            if (count($diceState['rolled']) > 0)
+            $rolledDice = $ds->getRolledColors();
+            if (count($rolledDice) > 0)
             {
                 GSCDiceManager::moveAllRolledDieToPlatter();
 
                 // Notify all players about the dice moved to the silver platter
                 self::notifyAllPlayers( "diceMovedToPlatter", clienttranslate( 'Remaining ${colors_uc} dice moved to the silver platter' ), array(
-                    'colors_uc' => implode(", ", array_map('ucwords', $diceState['rolled'])),
-                    'dice' => $diceState['rolled']
+                    'colors_uc' => implode(", ", array_map('ucwords', $rolledDice)),
+                    'dice' => $rolledDice
                 ));
             }
 
@@ -377,7 +378,7 @@ class GanzSchonClever extends Table
         }
 
         // Check if there any dice left to choose
-        if (count($diceState['rolled']) == 0)
+        if (count($ds->getRolledColors()) == 0)
         {
             $this->gamestate->nextState( 'activePlayerDieChoosingComplete' );
             return;
@@ -421,7 +422,7 @@ class GanzSchonClever extends Table
         }
 
         // Check there are still die available to select for active player
-        if ($isGameActivePlayer && count(GSCDiceSelectionManager::getAvailableSelectionsForPlayer( $player_id, $isGameActivePlayer )) == 0)
+        if ($isGameActivePlayer && count(GSCDiceSelectionManager::getAvailableColorSelectionsForPlayer( $player_id, $isGameActivePlayer )) == 0)
         {
             $this->gamestate->setPlayerNonMultiactive( $player_id, 'nextRound' );
             return;
