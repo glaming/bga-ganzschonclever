@@ -283,12 +283,22 @@ class GanzSchonClever extends Table
         {
             self::activePlayerChoosesDie( $dieColor );
         }
-        else if( $stateName == 'simultaneousDiceSelectionAndSheetMarking' && $privateStateName == 'chooseDieForScoreSheet' )
+        else if( $stateName == 'simultaneousDiceSelectionAndSheetMarking')
         {
-            self::chooseDieForScoreSheet( $dieColor );
+            // getPrivateState has syntax error if private states not set-up
+            $privateState = $this->gamestate->getPrivateState( self::getCurrentPlayerId() );
+            $privateStateName = $privateState['name'];
+
+            if ($privateStateName == 'chooseDieForScoreSheet')
+            {
+                self::chooseDieForScoreSheet( $dieColor );
+            } else {
+                throw new BgaUserException( self::_("Invalid game state '{$stateName} and private game state {$privateStateName} for action chooseDie") );
+            }
+
         }
         else {
-            throw new BgaUserException( self::_("Invalid game state '{$stateName} and private game state {$privateStateName} for action chooseDie") );
+            throw new BgaUserException( self::_("Invalid game state '{$stateName} for action chooseDie") );
         }
     }
 
