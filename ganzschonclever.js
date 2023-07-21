@@ -214,7 +214,7 @@ function (dojo, declare) {
 
         updateSelectableDice: function( dice )
         {
-            dojo.query( '.die .selectable' ).removeClass( 'selectable' );
+            dojo.query( '.die.selectable' ).removeClass( 'selectable' );
 
             dice.forEach( function( die )
             {
